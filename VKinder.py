@@ -69,6 +69,7 @@ def write_msg(user_id, message, keyboard=None):
         params=params
     vk.method('messages.send', params)
 
+
 def send_profile(prof):
     profile = (f"Имя: {prof['name']}\nФамилия: {prof['surname']}")
     vk.method('messages.send', {'user_id': main_user.id, 'message': profile,  'random_id': randrange(10 ** 7),})
