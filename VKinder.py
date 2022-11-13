@@ -1,9 +1,7 @@
 from random import randrange
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
-from vk_api.keyboard import VkKeyboard, VkKeyboardButton, VkKeyboardColor
 import requests
-from pprint import pprint
 
 class User:
     token = "vk1.a.t2tmoTAN7tSZHcyGXl48BtPj0-LCAYSGVz-uf94_BJNt7KudFPxj2v2AB7dNnqIlyaMnl7kZktU2pfKOs29GjFZ-HWesz7AMzrKcji6ed3W8cqgXuBnY_6PmTiKyVjsHUteLb-nB-f5kZf-vZlqDuph37pkrGg6vFCWUtkU4kBIZRQRW8jqTv3N8jUof84uPN6IX08sldYXzOftLtGpeqA"
@@ -25,47 +23,81 @@ class User:
         self.birthday = response['bdate']
         self.relation = response['relation']
         self.city = response['city']['title']
-    def __str__(self):
-        return f'Имя пользователя: {self.name}, Дата рождения: {self.birthday}, Город: {self.city}, Семейное положение: {self.relation}'
-    def get_userlist(self):
-        URL = "https://api.vk.com/method/users.search"
+        self.black_list = []
+        self.white_list = []
+    def get_search_criteria(self):
         params = {
             'access_token': self.token,
             'city': self.get_info['response'][0]['city']['id'],
             'relation': '6',
-            'age_from': get_age(self.id, "Укажи минимальный возраст твоей идеальной половинки"),      # через общение с ботом просим ввести желаемый возраст
-            'age_to': get_age(self.id, "И каков твой максимальный порог? :)"),
-            'sex': get_sex(self.id, "Кто тебя интересует: мужчины или женщины?"),
-            #'sex': button("Кто тебя интересует: мужчины или женщины?", 'мужчины'),
+            'count': '5',
+            'online': '1',
+            'offset': 0,
+            'age_from': self.get_age(self.id, "Укажи минимальный возраст твоей идеальной половинки"),
+            # через общение с ботом просим ввести желаемый возраст
+            'age_to': self.get_age(self.id, "И каков твой максимальный порог?"),
+            'sex': self.get_sex(self.id, "Кто тебя интересует: мужчины или женщины?"),
             'has_photo': '1',
             'can_access_closed': False,
             'v': '5.131'
         }
-        return requests.get(URL, params=params).json()
+        return params
+
+    def get_age(self, id, message):
+        bot.write_msg(self.id, message)
+        for event in longpoll.listen():
+            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                request = event.text
+                try:
+                    request = int(event.text)
+                except:
+                    bot.write_msg(id, "Введи возраст цифрами")
+                else:
+                    return request
+
+    def get_sex(self, id, message):
+        bot.write_msg(id, message)
+        for event in longpoll.listen():
+            if event.type == VkEventType.MESSAGE_NEW:
+                if event.to_me:
+                    request = event.text.lower()
+                    if request == 'мужчины' or request == 'парни':
+                        bot.write_msg(main_user.id, "Cекунду, ищу совпадения :)")
+                        return 2
+                    elif request == 'женщины' or request == 'девушки':
+                        bot.write_msg(main_user.id, "Cекунду, ищу совпадения :)")
+                        return 1
+                    else:
+                        bot.write_msg(main_user.id, "Прости, мне кажется, я не понял твоего ответа...")
+                        self.get_sex(id, "Так все же парни или девушки?")
+                        continue
+
+    def get_userlist(self, params):
+        response = requests.get("https://api.vk.com/method/users.search", params=params).json()
+        result = []
+        for profile in response['response']['items']:
+            if profile['id'] not in self.black_list and profile['id'] not in self.white_list:
+                result.append(profile)
+        return result
 
 class Bot:
-    # Шаблон для отправки сообщений
-    def write_msg(self, user_id, message, keyboard=None):
+
+    def write_msg(self, user_id, message):
         params = {
             'user_id': user_id,
             'message': message,
             'random_id': randrange(10 ** 7)
         }
-        if keyboard != None:
-            params['keyboard']: keyboard.get_keyboard()
-        else:
-            params = params
         vk.method('messages.send', params)
 
-    # шаблон для приветствия/прощания
     def send_basic_msg(self, user):
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW:
                 if event.to_me:
                     request = event.text.lower()
 
-                    if request == "привет":
-                        self.write_msg(user, f"Хай, {main_user.name}. Я - бот, который поможет подобрать для тебя вторую половинку! "
+                    if request == "старт":
+                        self.write_msg(user, f"Хай, {main_user.name}."
                                   f"\nДля начала я задам тебе пару вопросов :)")
                         return True
 
@@ -73,10 +105,13 @@ class Bot:
                         self.write_msg(user, "Пока((")
                         return False
                     else:
-                        self.write_msg(user, "Не поняла вашего ответа...")
-                        return False
-    def get_profile(self, profiles, user):
-        for element in profiles['response']['items']:
+                        self.write_msg(user, "Привет!Я - бот, который поможет подобрать для тебя вторую половинку! "
+                                             "\nЕсли хочешь начать чат, отправь 'СТАРТ'"
+                                             "\nЕсли захочешь прервать мою работу, отправь 'СТОП'")
+
+    def get_profile(self, profiles):
+        profile_list = []
+        for element in profiles:
             try:
                 profile = {
                     "name": element['first_name'],
@@ -84,20 +119,11 @@ class Bot:
                     'photos': self.get_photos(element['id']),
                     'user': element['id']
                 }
-
-                self.send_profile(profile)
-                self.write_msg(user, "Да / Нет")
-                for event in longpoll.listen():
-                    if event.type == VkEventType.MESSAGE_NEW:
-                        if event.to_me:
-                            request = event.text.lower()
-                            if request == "нет":
-                                break
-                            else:
-                                self.write_msg(user, f"Лови ссылку на профиль! \nwww.vk.com/id{element['id']}")
+                profile_list.append(profile)
             except:
                 continue
-        self.get_profile(main_user.get_userlist(), main_user.id)
+        return profile_list
+
     def get_photos(self, user):
         URL = "https://api.vk.com/method/photos.getAll"
         params = {
@@ -112,52 +138,49 @@ class Bot:
         bestphotos = ph_list[-1:-4:-1]
         bestphotos = sorted(bestphotos, key=lambda row: row['sizes'][0]['height'])
         # urls = [url['sizes'][-1]['url'] for url in bestphotos]
-        urls = [url['id'] for url in bestphotos]
-        return urls
+        ids = [url['id'] for url in bestphotos]
+        return ids
+
+    def read_list(self, profile_list, criterias):
+        while len(profile_list) !=0:
+            for profile in profile_list:
+                self.send_profile(profile_list.pop())
+                self.write_msg(main_user.id, "Да / Нет")
+                for event in longpoll.listen():
+                    if event.type == VkEventType.MESSAGE_NEW:
+                        if event.to_me:
+                            request = event.text.lower()
+                            if request == "нет":
+                                main_user.black_list.append(profile['user'])
+                                break
+                            elif request == "да":
+                                self.write_msg(main_user.id, f"Лови ссылку на профиль! \nwww.vk.com/id{profile['user']}")
+                                main_user.white_list.append(profile['user'])
+                                break
+                            elif request == "стоп":
+                                self.write_msg(main_user.id, "Было здорово! Заходи еще!")
+                                return
+                            else:
+                                self.write_msg(main_user.id, 'Прости, я не понял ответа... Да или Нет?')
+
+
+        else:
+            criterias['offset'] += 5
+            new = main_user.get_userlist(criterias)
+            self.read_list(self.get_profile(new), criterias)
+
     def send_profile(self, prof):
         profile = (f"Имя: {prof['name']}\nФамилия: {prof['surname']}")
         bot.write_msg(main_user.id, profile)
         photo_list = prof["photos"]
-
         for pic in photo_list:
             vk.method('messages.send', {'user_id': main_user.id, 'attachment': f"photo{prof['user']}_{pic}",
                                         'random_id': randrange(10 ** 7), })
 
 
-def get_age(id, message):
-    bot.write_msg(id, message)
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-            request = event.text
-            try:
-                request = int(event.text)
-            except:
-                bot.write_msg(id, "Введи возраст цифрами")
-            else:
-                return request
-def get_sex(id, message):
-    bot.write_msg(id, message)
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW:
-            if event.to_me:
-                request = event.text.lower()
-                if request == 'мужчины' or request == 'парни':
-                    return 2
-                elif request == 'женщины' or request == 'девушки':
-                    return 1
-                else:
-                    bot.write_msg(main_user.id, "Прости, мне кажется, я не понял твоего ответа...")
-                    get_sex(id, "Так все же парни или девушки?")
-                    continue
-# def button(message, lable):
-#     for event in longpoll.listen():
-#         if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-#             text = event.text
-#
-#             if text == message:
-#                 keyboard = VkKeyboard(one_time=True)
-#                 keyboard.add_button(label=lable, color=VkKeyboardColor.POSITIVE)
-#                 bot.write_msg(main_user.id, "", keyboard)
+
+
+
 
 # открываем сессию и слушаем сервер
 token = "vk1.a.UdjJgt1pq1ObEcx7YW2Q94iFv-GXIvB7BIiSFAwfmsU2spmBZ0MajZ8QOdM9JZSNtLhdiU0VxII6wyz2TUfOWK58kbYsNhOizm_MGPe4975OZvoCVj6Jq0cSm9K8u7D0n3ZBj_oKWjgtEsV4doJNahRu93xQ5hvRx_9tqEFWWwDe220wfKNy5Ck_8DXxkEQO83C8DmEnTC3SsubclAUduQ"
@@ -168,9 +191,11 @@ longpoll = VkLongPoll(vk)
 main_user = User()
 bot = Bot()
 
-
+# если пользователь начал диалог, то передаем набор критериев, по которым осуществляем первый поиск
 if bot.send_basic_msg(main_user.id):
-    pprint(bot.get_profile(main_user.get_userlist(), main_user.id)) # получаем первый список пользоватлей и передаем его боту
-else:
-    print("Работа завершена")
+
+    criterias = main_user.get_search_criteria()
+    user_profiles = main_user.get_userlist(criterias)
+    profiles = bot.get_profile(user_profiles)
+    bot.read_list(profiles, criterias)
 
