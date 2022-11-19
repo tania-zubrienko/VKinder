@@ -2,9 +2,12 @@ from random import randrange
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 import requests
+import DBase
+
 
 class User:
-    token = "vk1.a.t2tmoTAN7tSZHcyGXl48BtPj0-LCAYSGVz-uf94_BJNt7KudFPxj2v2AB7dNnqIlyaMnl7kZktU2pfKOs29GjFZ-HWesz7AMzrKcji6ed3W8cqgXuBnY_6PmTiKyVjsHUteLb-nB-f5kZf-vZlqDuph37pkrGg6vFCWUtkU4kBIZRQRW8jqTv3N8jUof84uPN6IX08sldYXzOftLtGpeqA"
+    with open("token2.txt", "r") as f:
+        token = f.readline().strip()
     @property
     def get_info(self):
         URL = "https://api.vk.com/method/users.get"
@@ -23,8 +26,7 @@ class User:
         self.birthday = response['bdate']
         self.relation = response['relation']
         self.city = response['city']['title']
-        self.black_list = []
-        self.white_list = []
+        self.userlist = DBase.consult_db()
     def get_search_criteria(self):
         params = {
             'access_token': self.token,
@@ -42,7 +44,6 @@ class User:
             'v': '5.131'
         }
         return params
-
     def get_age(self, id, message):
         bot.write_msg(self.id, message)
         for event in longpoll.listen():
@@ -54,7 +55,6 @@ class User:
                     bot.write_msg(id, "Введи возраст цифрами")
                 else:
                     return request
-
     def get_sex(self, id, message):
         bot.write_msg(id, message)
         for event in longpoll.listen():
@@ -71,17 +71,15 @@ class User:
                         bot.write_msg(main_user.id, "Прости, мне кажется, я не понял твоего ответа...")
                         self.get_sex(id, "Так все же парни или девушки?")
                         continue
-
     def get_userlist(self, params):
         response = requests.get("https://api.vk.com/method/users.search", params=params).json()
         result = []
         for profile in response['response']['items']:
-            if profile['id'] not in self.black_list and profile['id'] not in self.white_list:
+            if profile['id'] not in self.userlist:
                 result.append(profile)
         return result
 
 class Bot:
-
     def write_msg(self, user_id, message):
         params = {
             'user_id': user_id,
@@ -89,7 +87,6 @@ class Bot:
             'random_id': randrange(10 ** 7)
         }
         vk.method('messages.send', params)
-
     def send_basic_msg(self, user):
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW:
@@ -108,7 +105,6 @@ class Bot:
                         self.write_msg(user, "Привет!Я - бот, который поможет подобрать для тебя вторую половинку! "
                                              "\nЕсли хочешь начать чат, отправь 'СТАРТ'"
                                              "\nЕсли захочешь прервать мою работу, отправь 'СТОП'")
-
     def get_profile(self, profiles):
         profile_list = []
         for element in profiles:
@@ -123,7 +119,6 @@ class Bot:
             except:
                 continue
         return profile_list
-
     def get_photos(self, user):
         URL = "https://api.vk.com/method/photos.getAll"
         params = {
@@ -140,7 +135,6 @@ class Bot:
         # urls = [url['sizes'][-1]['url'] for url in bestphotos]
         ids = [url['id'] for url in bestphotos]
         return ids
-
     def read_list(self, profile_list, criterias):
         while len(profile_list) !=0:
             for profile in profile_list:
@@ -151,11 +145,11 @@ class Bot:
                         if event.to_me:
                             request = event.text.lower()
                             if request == "нет":
-                                main_user.black_list.append(profile['user'])
+                                DBase.add_toDB("dislike", profile['user'])
                                 break
                             elif request == "да":
                                 self.write_msg(main_user.id, f"Лови ссылку на профиль! \nwww.vk.com/id{profile['user']}")
-                                main_user.white_list.append(profile['user'])
+                                DBase.add_toDB("like", profile['user'])
                                 break
                             elif request == "стоп":
                                 self.write_msg(main_user.id, "Было здорово! Заходи еще!")
@@ -168,7 +162,6 @@ class Bot:
             criterias['offset'] += 5
             new = main_user.get_userlist(criterias)
             self.read_list(self.get_profile(new), criterias)
-
     def send_profile(self, prof):
         profile = (f"Имя: {prof['name']}\nФамилия: {prof['surname']}")
         bot.write_msg(main_user.id, profile)
@@ -178,22 +171,19 @@ class Bot:
                                         'random_id': randrange(10 ** 7), })
 
 
-
-
-
-
 # открываем сессию и слушаем сервер
-token = "vk1.a.UdjJgt1pq1ObEcx7YW2Q94iFv-GXIvB7BIiSFAwfmsU2spmBZ0MajZ8QOdM9JZSNtLhdiU0VxII6wyz2TUfOWK58kbYsNhOizm_MGPe4975OZvoCVj6Jq0cSm9K8u7D0n3ZBj_oKWjgtEsV4doJNahRu93xQ5hvRx_9tqEFWWwDe220wfKNy5Ck_8DXxkEQO83C8DmEnTC3SsubclAUduQ"
+with open("token.txt", "r") as f:
+    token = f.readline().strip()
+#token = "vk1.a.UdjJgt1pq1ObEcx7YW2Q94iFv-GXIvB7BIiSFAwfmsU2spmBZ0MajZ8QOdM9JZSNtLhdiU0VxII6wyz2TUfOWK58kbYsNhOizm_MGPe4975OZvoCVj6Jq0cSm9K8u7D0n3ZBj_oKWjgtEsV4doJNahRu93xQ5hvRx_9tqEFWWwDe220wfKNy5Ck_8DXxkEQO83C8DmEnTC3SsubclAUduQ"
 vk = vk_api.VkApi(token=token)
 longpoll = VkLongPoll(vk)
 
 # создаем 2 объекта для пользователя и для бота
 main_user = User()
 bot = Bot()
-
+print(main_user.userlist)
 # если пользователь начал диалог, то передаем набор критериев, по которым осуществляем первый поиск
 if bot.send_basic_msg(main_user.id):
-
     criterias = main_user.get_search_criteria()
     user_profiles = main_user.get_userlist(criterias)
     profiles = bot.get_profile(user_profiles)

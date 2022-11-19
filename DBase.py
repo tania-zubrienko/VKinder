@@ -12,53 +12,51 @@ if not database_exists(engine.url):
     print('База данных создана...')
 
 Base = declarative_base()
+def create_table():
+    Base.metadata.create_all(engine)
 
 class User(Base):
     __tablename__ = 'User'
-    user_id = sq.Column(sq.Integer, primary_key = True)
-    white = relationship('White', backref='User')
-    black = relationship('Black', backref='User')
+    profile = sq.Column(sq.Integer, primary_key=True)
+    like = sq.Column(sq.Boolean)
 
-class White(Base):
-    __tablename__ = 'White'
-    profile = sq.Column(sq.Integer, primary_key = True)
-    user_id = sq.Column(sq.Integer,sq.ForeignKey('User.user_id'))
+# def add_main(id):
+#     session = Session(bind=engine)
+#     create_table()
+#     element = User(user_id=id)
+#     session.add(element)
+#     #session.add_all(element)
+#     session.commit()
+#     session.close()
 
-class Black(Base):
-    __tablename__ = 'Black'
-    profile = sq.Column(sq.Integer, primary_key = True)
-    user_id = sq.Column(sq.Integer,sq.ForeignKey('User.user_id'))
+def add_toDB(like, profile):
+    try:
+        session = Session(bind=engine)
+        create_table()
+        element = User(profile=profile)
+        session.add(element)
+        #session.add_all(element)
+        session.commit()
+        session.close()
+        setvalue(profile, like)
+    except:
+        return False
 
-
-
-def add_main(id):
+def setvalue(id, like):
     session = Session(bind=engine)
-    element = User(profile=id)
-    session.add(element)
-    session.add_all(element)
+    if like=="like":
+        session.query(User).filter(User.profile == id).update({'like': True})
+    else:
+        session.query(User).filter(User.profile == id).update({'like': False})
     session.commit()
     session.close()
 
-def add_toDB(table, profile_id):
+def consult_db():
+    result_list = []
     session = Session(bind=engine)
-    if table == 'black':
-        element = Black(profile=profile_id)
-        session.add(element)
-        #session.add_all(element)
-        session.commit()
-        session.close()
-    if table == 'white':
-        element = White(profile=profile_id)
-        session.add(element)
-        #session.add_all(element)
-        session.commit()
-        session.close()
-
-def consult_blacklist():
-    session = Session(bind=engine)
-    query = session.query(Black)
-    print(str(query))
-def consult_whitelist():
-    session = Session(bind=engine)
-    query = session.query(White)
-    print(str(query))
+    query = session.query(User).all()
+    for id in query:
+        result_list.append(id.profile)
+    session.commit()
+    session.close()
+    return result_list
