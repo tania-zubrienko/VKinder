@@ -20,14 +20,6 @@ class User(Base):
     profile = sq.Column(sq.Integer, primary_key=True)
     like = sq.Column(sq.Boolean)
 
-# def add_main(id):
-#     session = Session(bind=engine)
-#     create_table()
-#     element = User(user_id=id)
-#     session.add(element)
-#     #session.add_all(element)
-#     session.commit()
-#     session.close()
 
 def add_toDB(like, profile):
     try:
