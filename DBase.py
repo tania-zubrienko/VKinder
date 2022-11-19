@@ -35,21 +35,24 @@ def add_main(id):
     session = Session(bind=engine)
     element = User(profile=id)
     session.add(element)
-    session.add_all
-    session.commit
+    session.add_all(element)
+    session.commit()
+    session.close()
 
 def add_toDB(table, profile_id):
     session = Session(bind=engine)
     if table == 'black':
         element = Black(profile=profile_id)
         session.add(element)
-        #session.add_all
-        session.commit
+        #session.add_all(element)
+        session.commit()
+        session.close()
     if table == 'white':
         element = White(profile=profile_id)
         session.add(element)
-        #session.add_all
-        session.commit
+        #session.add_all(element)
+        session.commit()
+        session.close()
 
 def consult_blacklist():
     session = Session(bind=engine)
