@@ -3,6 +3,8 @@ import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 import requests
 import DBase
+from pprint import pprint
+import datetime
 
 
 class User:
@@ -19,67 +21,91 @@ class User:
         res = requests.get(URL, params=params).json()
         return res
     def __init__(self):
-        response = self.get_info['response'][0]
-        self.sex = response['sex']
-        self.id = response['id']
-        self.name = response['first_name']
-        self.birthday = response['bdate']
-        self.relation = response['relation']
-        self.city = response['city']['title']
-        self.userlist = DBase.consult_db()
-    def get_search_criteria(self):
+        userinfo = self.get_info
+        if 'response' in userinfo:
+            response = userinfo['response'][0]
+            try:
+                self.sex = response['sex']
+                self.id = response['id']
+                self.name = response['first_name']
+                self.birthday = int(response['bdate'][-4::])
+                self.relation = response['relation']
+                self.city = response['city']['id']
+                self.userlist = DBase.consult_db()
+            except:
+                print("Не достаточно данных в профиле")
+        else:
+            print("Ошибка в получении информации о пользователе.")
+
+
+
+
+class Chat:
+    def get_search_criteria(self, user):
         params = {
-            'access_token': self.token,
-            'city': self.get_info['response'][0]['city']['id'],
+            'access_token': user.token,
+            'city': user.get_info['response'][0]['city']['id'],
             'relation': '6',
             'count': '5',
             'online': '1',
             'offset': 0,
-            'age_from': self.get_age(self.id, "Укажи минимальный возраст твоей идеальной половинки"),
-            # через общение с ботом просим ввести желаемый возраст
-            'age_to': self.get_age(self.id, "И каков твой максимальный порог?"),
-            'sex': self.get_sex(self.id, "Кто тебя интересует: мужчины или женщины?"),
+            'age_from': self.get_age(user.id, "Укажи минимальный возраст твоей идеальной половинки"),
+            'age_to': self.get_age(user.id, "И каков твой максимальный порог?"),
+            'sex': self.get_sex(user.id, "Кто тебя интересует: мужчины или женщины?"),
+            'has_photo': '1',
+            'can_access_closed': False,
+            'v': '5.131'
+        }
+        return params
+    def set_search_criteria(self):
+        def opposite_sex():
+            if main_user.sex == 1:
+                return "2"
+            elif main_user.sex==2:
+                return "1"
+            else:
+                return "0"
+        params = {
+            'access_token': main_user.token,
+            'city': main_user.city,
+            'relation': '6',
+            'count': '5',
+            'online': '1',
+            'offset': 0,
+            'age_from': int(datetime.datetime.now().year) - main_user.birthday-5,
+            'age_to': int(datetime.datetime.now().year) - main_user.birthday+5,
+            'sex': opposite_sex(),
             'has_photo': '1',
             'can_access_closed': False,
             'v': '5.131'
         }
         return params
     def get_age(self, id, message):
-        bot.write_msg(self.id, message)
+        self.write_msg(id, message)
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                request = event.text
                 try:
                     request = int(event.text)
                 except:
-                    bot.write_msg(id, "Введи возраст цифрами")
+                    self.write_msg(id, "Введи возраст цифрами")
                 else:
                     return request
     def get_sex(self, id, message):
-        bot.write_msg(id, message)
+        self.write_msg(id, message)
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW:
                 if event.to_me:
                     request = event.text.lower()
                     if request == 'мужчины' or request == 'парни':
-                        bot.write_msg(main_user.id, "Cекунду, ищу совпадения :)")
+                        self.write_msg(event.user_id, "Cекунду, ищу совпадения :)")
                         return 2
                     elif request == 'женщины' or request == 'девушки':
-                        bot.write_msg(main_user.id, "Cекунду, ищу совпадения :)")
+                        Chat.write_msg(event.user_id, "Cекунду, ищу совпадения :)")
                         return 1
                     else:
-                        bot.write_msg(main_user.id, "Прости, мне кажется, я не понял твоего ответа...")
+                        self.write_msg(event.user_id, "Прости, мне кажется, я не понял твоего ответа...")
                         self.get_sex(id, "Так все же парни или девушки?")
                         continue
-    def get_userlist(self, params):
-        response = requests.get("https://api.vk.com/method/users.search", params=params).json()
-        result = []
-        for profile in response['response']['items']:
-            if profile['id'] not in self.userlist:
-                result.append(profile)
-        return result
-
-class Bot:
     def write_msg(self, user_id, message):
         params = {
             'user_id': user_id,
@@ -87,24 +113,35 @@ class Bot:
             'random_id': randrange(10 ** 7)
         }
         vk.method('messages.send', params)
-    def send_basic_msg(self, user):
+    def send_basic_msg(self):
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW:
                 if event.to_me:
                     request = event.text.lower()
 
                     if request == "старт":
-                        self.write_msg(user, f"Хай, {main_user.name}."
-                                  f"\nДля начала я задам тебе пару вопросов :)")
+                        self.write_msg(event.user_id, f"Хай, {main_user.name}.")
+                                  #f"\nДля начала я задам тебе пару вопросов :)")
                         return True
 
                     elif request == "пока":
-                        self.write_msg(user, "Пока((")
+                        self.write_msg(event.user_id, "Пока((")
                         return False
                     else:
-                        self.write_msg(user, "Привет!Я - бот, который поможет подобрать для тебя вторую половинку! "
+                        self.write_msg(event.user_id, "Привет!Я - бот, который поможет подобрать для тебя вторую половинку! "
                                              "\nЕсли хочешь начать чат, отправь 'СТАРТ'"
                                              "\nЕсли захочешь прервать мою работу, отправь 'СТОП'")
+
+
+class Searcher:
+    def get_userlist(self, params):
+        response = requests.get("https://api.vk.com/method/users.search", params=params).json()
+        pprint(response)
+        result = []
+        for profile in response['response']['items']:
+            if profile['id'] not in main_user.userlist:
+                result.append(profile)
+        return result
     def get_profile(self, profiles):
         profile_list = []
         for element in profiles:
@@ -139,7 +176,7 @@ class Bot:
         while len(profile_list) !=0:
             for profile in profile_list:
                 self.send_profile(profile_list.pop())
-                self.write_msg(main_user.id, "Да / Нет")
+                chat.write_msg(main_user.id, "Да / Нет")
                 for event in longpoll.listen():
                     if event.type == VkEventType.MESSAGE_NEW:
                         if event.to_me:
@@ -148,44 +185,49 @@ class Bot:
                                 DBase.add_toDB("dislike", profile['user'])
                                 break
                             elif request == "да":
-                                self.write_msg(main_user.id, f"Лови ссылку на профиль! \nwww.vk.com/id{profile['user']}")
+                                chat.write_msg(main_user.id, f"Лови ссылку на профиль! \nwww.vk.com/id{profile['user']}")
                                 DBase.add_toDB("like", profile['user'])
                                 break
                             elif request == "стоп":
-                                self.write_msg(main_user.id, "Было здорово! Заходи еще!")
+                                chat.write_msg(main_user.id, "Было здорово! Заходи еще!")
                                 return
                             else:
-                                self.write_msg(main_user.id, 'Прости, я не понял ответа... Да или Нет?')
+                                chat.write_msg(main_user.id, 'Прости, я не понял ответа... Да или Нет?')
 
 
         else:
             criterias['offset'] += 5
-            new = main_user.get_userlist(criterias)
+            new = self.get_userlist(criterias)
             self.read_list(self.get_profile(new), criterias)
     def send_profile(self, prof):
         profile = (f"Имя: {prof['name']}\nФамилия: {prof['surname']}")
-        bot.write_msg(main_user.id, profile)
+        chat.write_msg(main_user.id, profile)
         photo_list = prof["photos"]
         for pic in photo_list:
             vk.method('messages.send', {'user_id': main_user.id, 'attachment': f"photo{prof['user']}_{pic}",
                                         'random_id': randrange(10 ** 7), })
 
-
 # открываем сессию и слушаем сервер
 with open("token.txt", "r") as f:
     token = f.readline().strip()
-#token = "vk1.a.UdjJgt1pq1ObEcx7YW2Q94iFv-GXIvB7BIiSFAwfmsU2spmBZ0MajZ8QOdM9JZSNtLhdiU0VxII6wyz2TUfOWK58kbYsNhOizm_MGPe4975OZvoCVj6Jq0cSm9K8u7D0n3ZBj_oKWjgtEsV4doJNahRu93xQ5hvRx_9tqEFWWwDe220wfKNy5Ck_8DXxkEQO83C8DmEnTC3SsubclAUduQ"
 vk = vk_api.VkApi(token=token)
 longpoll = VkLongPoll(vk)
 
 # создаем 2 объекта для пользователя и для бота
 main_user = User()
-bot = Bot()
-print(main_user.userlist)
+chat = Chat()
+bot_logic = Searcher()
+
 # если пользователь начал диалог, то передаем набор критериев, по которым осуществляем первый поиск
-if bot.send_basic_msg(main_user.id):
-    criterias = main_user.get_search_criteria()
-    user_profiles = main_user.get_userlist(criterias)
-    profiles = bot.get_profile(user_profiles)
-    bot.read_list(profiles, criterias)
+if chat.send_basic_msg():
+    try:
+        criterias = chat.set_search_criteria()
+    except:
+         print("Недостаточно данных, нужен запрос вручную")
+         criterias = chat.get_search_criteria(main_user)
+
+    pprint(criterias)
+    # user_profiles = bot_logic.get_userlist(criterias)
+    # profiles = bot_logic.get_profile(user_profiles)
+    # bot_logic.read_list(profiles, criterias)
 
