@@ -218,7 +218,7 @@ with open("token.txt", "r") as f:
 vk = vk_api.VkApi(token=token)
 longpoll = VkLongPoll(vk)
 
-# создаем 2 объекта для пользователя и для бота
+# создаем 2 объекта для пользователя, бота (сторона фронта для взаимодействия с пользователем), поисковик (для обработки запросов)
 main_user = User()
 chat = Chat()
 bot_logic = Searcher()
