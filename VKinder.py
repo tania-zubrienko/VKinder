@@ -3,7 +3,6 @@ import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 import requests
 import DBase
-from pprint import pprint
 import datetime
 
 
@@ -20,6 +19,7 @@ class User:
         }
         res = requests.get(URL, params=params).json()
         return res
+    
     def __init__(self):
         userinfo = self.get_info
         if 'response' in userinfo:
@@ -36,8 +36,6 @@ class User:
                 print("Не достаточно данных в профиле")
         else:
             print("Ошибка в получении информации о пользователе.")
-
-
 
 
 class Chat:
@@ -57,6 +55,7 @@ class Chat:
             'v': '5.131'
         }
         return params
+    
     def set_search_criteria(self):
         def opposite_sex():
             if main_user.sex == 1:
@@ -80,6 +79,7 @@ class Chat:
             'v': '5.131'
         }
         return params
+    
     def get_age(self, id, message):
         self.write_msg(id, message)
         for event in longpoll.listen():
@@ -90,6 +90,7 @@ class Chat:
                     self.write_msg(id, "Введи возраст цифрами")
                 else:
                     return request
+                
     def get_sex(self, id, message):
         self.write_msg(id, message)
         for event in longpoll.listen():
@@ -106,6 +107,7 @@ class Chat:
                         self.write_msg(event.user_id, "Прости, мне кажется, я не понял твоего ответа...")
                         self.get_sex(id, "Так все же парни или девушки?")
                         continue
+                        
     def write_msg(self, user_id, message):
         params = {
             'user_id': user_id,
@@ -113,6 +115,7 @@ class Chat:
             'random_id': randrange(10 ** 7)
         }
         vk.method('messages.send', params)
+        
     def send_basic_msg(self):
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW:
@@ -142,6 +145,7 @@ class Searcher:
             if profile['id'] not in main_user.userlist:
                 result.append(profile)
         return result
+    
     def get_profile(self, profiles):
         profile_list = []
         for element in profiles:
@@ -156,6 +160,7 @@ class Searcher:
             except:
                 continue
         return profile_list
+    
     def get_photos(self, user):
         URL = "https://api.vk.com/method/photos.getAll"
         params = {
@@ -172,6 +177,7 @@ class Searcher:
         # urls = [url['sizes'][-1]['url'] for url in bestphotos]
         ids = [url['id'] for url in bestphotos]
         return ids
+    
     def read_list(self, profile_list, criterias):
         while len(profile_list) !=0:
             for profile in profile_list:
@@ -193,12 +199,11 @@ class Searcher:
                                 return
                             else:
                                 chat.write_msg(main_user.id, 'Прости, я не понял ответа... Да или Нет?')
-
-
         else:
             criterias['offset'] += 5
             new = self.get_userlist(criterias)
             self.read_list(self.get_profile(new), criterias)
+            
     def send_profile(self, prof):
         profile = (f"Имя: {prof['name']}\nФамилия: {prof['surname']}")
         chat.write_msg(main_user.id, profile)
@@ -226,8 +231,8 @@ if chat.send_basic_msg():
          print("Недостаточно данных, нужен запрос вручную")
          criterias = chat.get_search_criteria(main_user)
 
-    pprint(criterias)
-    # user_profiles = bot_logic.get_userlist(criterias)
-    # profiles = bot_logic.get_profile(user_profiles)
-    # bot_logic.read_list(profiles, criterias)
+    
+    user_profiles = bot_logic.get_userlist(criterias)
+    profiles = bot_logic.get_profile(user_profiles)
+    bot_logic.read_list(profiles, criterias)
 
