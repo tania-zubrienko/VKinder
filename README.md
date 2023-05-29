@@ -1,5 +1,5 @@
 # VKinder
-A chatbot created for the social network VK.com. The script is consuming the official API designed by VK.com
+A chatbot created for the social network VK.com. The script is consuming the [official API designed by VK.com](https://dev.vk.com/method)
 
 The logic is the following: 
 1) When the script runs, the connection to PostgresDB is created. 
